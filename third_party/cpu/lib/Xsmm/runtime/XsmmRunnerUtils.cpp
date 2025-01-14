@@ -83,7 +83,8 @@ extern "C" void xsmm_gemm_invoke(const libxsmm_datatype dType,
                                  const libxsmm_datatype out_dtype, int64_t addr,
                                  void *alignedPtrA, int64_t offsetA,
                                  void *alignedPtrB, int64_t offsetB,
-                                 void *alignedPtrC, int64_t offsetC) {
+                                 void *alignedPtrC, int64_t offsetC,
+                                 int64_t lda, int64_t ldb, int64_t ldc) {
   libxsmm_xmmfunction sgemm;
   libxsmm_gemm_param gemm_param;
 
@@ -91,6 +92,11 @@ extern "C" void xsmm_gemm_invoke(const libxsmm_datatype dType,
   gemm_param.a.primary = get_base_ptr(dType, alignedPtrB, offsetB);
   gemm_param.b.primary = get_base_ptr(dType, alignedPtrA, offsetA);
   gemm_param.c.primary = get_base_ptr(out_dtype, alignedPtrC, offsetC);
+
+  // Pass LDs at runtime.
+  gemm_param.a.quinary = &lda;
+  gemm_param.b.quinary = &ldb;
+  gemm_param.c.quinary = &ldc;
 
   sgemm.gemm = reinterpret_cast<libxsmm_gemmfunction>(addr);
   sgemm.gemm(&gemm_param);

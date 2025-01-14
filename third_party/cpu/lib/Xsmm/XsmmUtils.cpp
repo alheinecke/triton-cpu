@@ -998,6 +998,8 @@ buildBrgemmCalls(PatternRewriter &rewriter, Operation *op, ValueRange inputs,
   auto posLeadingDimC = *getPosInCodomain(
       posM, indexingMaps[2], ctx); // TODO: account for transposes...
   auto ldc = metadataC.getStrides()[posLeadingDimC];
+  auto runtimeLd = rewriter.create<arith::ConstantIntOp>(loc, /*value=*/0xffffffff,
+                                                        /*width=*/64);
 
   Value strideA, strideB;
   std::optional<Value> batchSize;
@@ -1030,7 +1032,14 @@ buildBrgemmCalls(PatternRewriter &rewriter, Operation *op, ValueRange inputs,
     invokeName = "xsmm_brgemm_invoke";
   }
 
-  auto sizesAndStrides = SmallVector<Value>{m, n, k, lda, ldb, ldc};
+  auto sizesAndStrides = SmallVector<Value>{m, n, k};
+  // For GEMM, use runtime leading dims with invoke.
+  // Otherwise, JIT leading dims through invoke.
+  if (!posBatch)
+    sizesAndStrides.append({runtimeLd, runtimeLd, runtimeLd});
+  else
+    sizesAndStrides.append({lda, ldb, ldc});
+  // Pass strides for BRGEMM.
   if (posBatch)
     sizesAndStrides.append({strideA, strideB});
   for (auto sizeOrStride : sizesAndStrides) {
@@ -1057,6 +1066,10 @@ buildBrgemmCalls(PatternRewriter &rewriter, Operation *op, ValueRange inputs,
   operandRange.push_back(dispatched.getResult(0));
   for (auto operand : inputs)
     operandRange.push_back(operand);
+  // Pass LDs at runtime for GEMM.
+  if (!posBatch)
+  operandRange.append({lda, ldb, ldc});
+  // Pass batch size for BRGEMM.
   if (posBatch)
     operandRange.push_back(*batchSize);
   auto invokeCall = xsmm::utils::buildInvokeCall(
