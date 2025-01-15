@@ -94,8 +94,9 @@ extern "C" void xsmm_gemm_invoke(const libxsmm_datatype dType,
   gemm_param.c.primary = get_base_ptr(out_dtype, alignedPtrC, offsetC);
 
   // Pass LDs at runtime.
-  gemm_param.a.quinary = &lda;
-  gemm_param.b.quinary = &ldb;
+  // Switch A with B for col-major.
+  gemm_param.a.quinary = &ldb;
+  gemm_param.b.quinary = &lda;
   gemm_param.c.quinary = &ldc;
 
   sgemm.gemm = reinterpret_cast<libxsmm_gemmfunction>(addr);
